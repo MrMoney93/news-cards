@@ -1,2 +1,7 @@
 # news-cards
-Auto-generated news cards for Mohamed Talaat page
+كروت الأخبار اللي بوت صفحة "محمد طلعت | Mohamed Talaat" بيولدها تلقائيًا وبيستخدم روابطها في فيسبوك وإنستجرام عبر Metricool.
+
+- `make_card.py` — يرسم الكارت (1080×1080).
+- `publish_card.sh` — يرسم ويرفع ويطبع الرابط العام.
+- `cards/` — الكروت المنشورة.
+- `brand/` — اللوجو.
