@@ -1,0 +1,34 @@
+name: make-card
+on:
+  workflow_dispatch:
+    inputs:
+      headline: {description: "عنوان الكارت", required: true}
+      category: {description: "اقتصاد | بزنس | منوعات | سياسة", required: true}
+      date:     {description: "التاريخ بالعربي", required: true}
+      slug:     {description: "YYYY-MM-DD-HHMM", required: true}
+permissions:
+  contents: write
+concurrency: {group: make-card, cancel-in-progress: false}
+jobs:
+  card:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq libraqm0
+      - run: pip install -q pillow
+      - name: Render card
+        env:
+          H: ${{ inputs.headline }}
+          C: ${{ inputs.category }}
+          D: ${{ inputs.date }}
+          S: ${{ inputs.slug }}
+        run: |
+          OUT="cards/${S:0:7}/${S:8}.png"
+          mkdir -p "$(dirname "$OUT")"
+          python3 make_card.py "$H" "$C" "$D" "$OUT"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT"
+          git commit -m "card $S"
+          git pull --rebase -q origin main
+          git push origin HEAD:main
