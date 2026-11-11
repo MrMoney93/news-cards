@@ -12,8 +12,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq libraqm0
       - run: pip install -q pillow
+      - name: Ensure raqm (Arabic shaping)
+        timeout-minutes: 6
+        run: |
+          ok() { python3 -c "import sys; from PIL import features; sys.exit(0 if features.check('raqm') else 1)"; }
+          if ok; then echo "raqm already available"; exit 0; fi
+          for i in 1 2 3 4; do
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq || true
+            if sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y -qq libraqm0 && ok; then exit 0; fi
+            echo "apt attempt $i failed, retrying in 30s"; sleep 30
+          done
+          exit 1
       - name: Render pending cards
         run: |
           python3 - <<'PY'
