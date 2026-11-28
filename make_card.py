@@ -143,7 +143,7 @@ def photo_panel(img, poly, box, bg_path):
     mid = (y0 + y1) / 2
     for y in range(y0 - 20, y1 + 21):
         t = abs(y - mid) / ((y1 - y0) / 2)
-        a = int(215 - 60 * min(t, 1) ** 2)
+        a = int(150 - 60 * min(t, 1) ** 2)
         td.line((x0 - 20, y, x1 + 20, y), fill=(nr, ng, nb, a))
     layer.alpha_composite(tint)
     mask = Image.new("L", img.size, 0)
