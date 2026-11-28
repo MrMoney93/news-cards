@@ -25,10 +25,33 @@ jobs:
           done
           exit 1
       - name: Render pending cards
+        env:
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
         run: |
           python3 - <<'PY'
-          import json, glob, os, subprocess
+          import json, glob, os, subprocess, urllib.parse, urllib.request
           from PIL import Image
+
+          def pixabay_photo(query, dest):
+              """Download the top Pixabay photo for an English query; None on any failure."""
+              key = os.environ.get("PIXABAY_API_KEY")
+              if not key or not query:
+                  return None
+              try:
+                  url = "https://pixabay.com/api/?" + urllib.parse.urlencode({
+                      "key": key, "q": query[:100], "image_type": "photo", "safesearch": "true",
+                      "min_width": 1000, "per_page": 5, "order": "popular"})
+                  hits = json.load(urllib.request.urlopen(url, timeout=20)).get("hits", [])
+                  if not hits:
+                      print("no pixabay hits for", query); return None
+                  h = hits[0]
+                  req = urllib.request.Request(h["largeImageURL"], headers={"User-Agent": "news-cards"})
+                  open(dest, "wb").write(urllib.request.urlopen(req, timeout=30).read())
+                  print("pixabay photo", h["id"], "by", h.get("user"), "for", query)
+                  return dest
+              except Exception as e:
+                  print("pixabay failed:", e); return None
+
           for req in sorted(glob.glob("requests/*.json")):
               r = json.load(open(req, encoding="utf-8"))
               s = r["slug"]
@@ -37,7 +60,11 @@ jobs:
                   continue
               os.makedirs(os.path.dirname(jpg), exist_ok=True)
               png = jpg[:-4] + ".png"
-              subprocess.run(["python3", "make_card.py", r["headline"], r["category"], r["date"], png], check=True)
+              args = ["python3", "make_card.py", r["headline"], r["category"], r["date"], png]
+              bg = pixabay_photo(r.get("image_query", ""), "/tmp/bg.jpg")
+              if bg:
+                  args.append(bg)
+              subprocess.run(args, check=True)
               Image.open(png).convert("RGB").save(jpg, "JPEG", quality=92)
               print("rendered", jpg)
           PY

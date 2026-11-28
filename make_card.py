@@ -3,7 +3,8 @@
 category one of: اقتصاد | بزنس | منوعات | سياسة
 4:5 (1080x1350) in the Mr.MONEY identity: grid paper, navy torn panel, kraft tape,
 red MR.MONEY stamp, ink badge with orange keyword, gold numbers.
-Needs fonts/Cairo.ttf (variable) next to this script and Pillow with raqm."""
+Needs fonts/Cairo.ttf (variable) next to this script and Pillow with raqm.
+Optional 5th arg: background photo path, shown inside the navy panel under a navy tint."""
 import os, random, re, sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
@@ -124,7 +125,33 @@ def stamp(img, label):
     img.alpha_composite(s, (M - 4, M - 4))
 
 
-def main(headline, category, date, out):
+def photo_panel(img, poly, box, bg_path):
+    """Fill the torn panel with a cover-cropped photo under a navy tint."""
+    x0, y0, x1, y1 = box
+    pw, ph = x1 - x0 + 40, y1 - y0 + 40
+    ph_img = Image.open(bg_path).convert("RGB")
+    s = max(pw / ph_img.width, ph / ph_img.height)
+    ph_img = ph_img.resize((int(ph_img.width * s) + 1, int(ph_img.height * s) + 1), Image.LANCZOS)
+    cx, cy = (ph_img.width - pw) // 2, (ph_img.height - ph) // 2
+    ph_img = ph_img.crop((cx, cy, cx + pw, cy + ph))
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    layer.paste(ph_img, (x0 - 20, y0 - 20))
+    # navy tint: lighter at the top/bottom edges, strongest behind the headline
+    tint = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    td = ImageDraw.Draw(tint)
+    nr, ng, nb = (int(NAVY[i:i + 2], 16) for i in (1, 3, 5))
+    mid = (y0 + y1) / 2
+    for y in range(y0 - 20, y1 + 21):
+        t = abs(y - mid) / ((y1 - y0) / 2)
+        a = int(215 - 60 * min(t, 1) ** 2)
+        td.line((x0 - 20, y, x1 + 20, y), fill=(nr, ng, nb, a))
+    layer.alpha_composite(tint)
+    mask = Image.new("L", img.size, 0)
+    ImageDraw.Draw(mask).polygon(poly, fill=255)
+    img.paste(layer, (0, 0), mask)
+
+
+def main(headline, category, date, out, bg=None):
     rnd = random.Random(headline)
     img = Image.new("RGBA", (W, H), PAPER)
     d = ImageDraw.Draw(img)
@@ -169,6 +196,11 @@ def main(headline, category, date, out):
     img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(12)))
     d = ImageDraw.Draw(img)
     d.polygon(poly, fill=NAVY)
+    if bg and os.path.exists(bg):
+        try:
+            photo_panel(img, poly, (px0, py0, px1, py1), bg)
+        except Exception as e:  # bad photo -> keep the plain navy panel
+            print("photo skipped:", e, file=sys.stderr)
     tape(img, px0 + 40, py0 + 6, 170, 46, 32)
     tape(img, px1 - 40, py1 - 6, 170, 46, 32)
     d = ImageDraw.Draw(img)
@@ -193,4 +225,4 @@ def main(headline, category, date, out):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:5])
+    main(*sys.argv[1:6])
